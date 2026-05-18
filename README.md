@@ -1,4 +1,6 @@
 # SupportPalPy
 Python Library implementation of the Support Pal REST API
 
-Required dateutil + requests pip modules
+Required pip modules:
+- python-dateutil
+- requests
