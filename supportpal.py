@@ -373,7 +373,7 @@ def SanitiseUrl(URL):
         URL = URL[0:len(URL)-2]
     return URL
 
-def GetTickets(filter: int = None, filter_operator: Operator | int = None, search: str = None, number: str = None, status: str | Status = None, priority: str | Priority = None, user: User | List[User] | str = None, user_email: str = None, organisation: Organisation | str = None, assigned: Operator | List[Operator] | str = None, internal: int = None, start: int = None, created_at_min: int | str = None, created_at_max: int | str = None, updated_at_min: int | str = None, updated_at_max: int | str = None, limit: int = 50) -> List[Ticket]:
+def GetTickets(filter: int = None, filter_operator: Operator | int = None, search: str = None, number: str = None, status: str | Status = None, priority: str | Priority = None, user: User | List[User] | str = None, user_email: str = None, organisation: Organisation | str = None, assigned: Operator | List[Operator] | str = None, internal: bool = None, start: int = None, created_at_min: int | str = None, created_at_max: int | str = None, updated_at_min: int | str = None, updated_at_max: int | str = None, limit: int = 50) -> List[Ticket]:
     target = f"{URL}/ticket/ticket?limit={limit}"
     if not filter == None:
         target += f"&filter={filter}"
@@ -424,7 +424,7 @@ def GetTickets(filter: int = None, filter_operator: Operator | int = None, searc
         else:
             target += f"&assigned={user}"
     if not internal == None:
-        target += f"&internal={internal}"
+        target += f"&internal={int(internal)}"
     if not start == None:
         target += f"&start={start}"
     if not updated_at_max == None:
@@ -456,6 +456,45 @@ def GetTickets(filter: int = None, filter_operator: Operator | int = None, searc
 def GetTicketById(id: int) -> Ticket:
     target = f"{URL}/ticket/ticket/{id}"
     return Ticket(json.loads(utils.GET(target, TKN).text)['data'])
+
+def GetMessages(ticket_id: int = None, is_from_customer: bool = None, is_note: bool = None, include_drafts: bool = None, start: int = None, created_at_min: int | str = None, created_at_max: int | str = None, updated_at_min: int | str = None, updated_at_max: int | str = None, limit: int = 50) -> List[Message]:
+    target = f"{URL}/ticket/message?limit={limit}"
+    if not ticket_id == None:
+        target += f"&ticket_id={ticket_id}"
+    if is_from_customer is not None: target += f"by={int(is_from_customer)}"
+    if is_note is not None: target += f"type={int(is_note)}"
+    if include_drafts is not None: target += f"include_draft={int(include_drafts)}"
+    if not start == None:
+        target += f"&start={start}"
+    if not updated_at_max == None:
+        if isinstance(updated_at_max, int):
+            target += f"&updated_at_max={updated_at_max}"
+        else:
+            target += f"&updated_at_max={int(parser.parse(updated_at_max, dayfirst=True).timestamp())}"
+    if not updated_at_min == None:
+        if isinstance(updated_at_min, int):
+            target += f"&updated_at_min={updated_at_min}"
+        else:
+            target += f"&updated_at_min={int(parser.parse(updated_at_min, dayfirst=True).timestamp())}"
+    if not created_at_max == None:
+        if isinstance(created_at_max, int):
+            target += f"&created_at_max={created_at_max}"
+        else:
+            target += f"&created_at_max={int(parser.parse(created_at_max, dayfirst=True).timestamp())}"
+    if not created_at_min == None:
+        if isinstance(created_at_min, int):
+            target += f"&created_at_min={created_at_min}"
+        else:
+            target += f"&created_at_min={int(parser.parse(created_at_min, dayfirst=True).timestamp())}"
+    data = json.loads(utils.GET(target, TKN).text)['data']
+    results = []
+    for msg in data:
+        results.append(Message(msg))
+    return results
+
+def GetMessageById(id: int) -> Message:
+    target = f"{URL}/ticket/message/{id}"
+    return Message(json.loads(utils.GET(target, TKN).text)['data'])
 
 def GetOperators(email: str = None, limit: int = 50) -> List[Operator]:
     target = f"{URL}/user/operator?limit={limit}"
