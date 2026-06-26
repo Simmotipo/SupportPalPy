@@ -282,7 +282,28 @@ class CustomFieldValue:
             "value": self.value,
             "encrypted": self.encrypted
         })
+
+class CustomFieldOption:
+    def __init__(self, data):
+        if isinstance(data, str):
+            data = json.loads(data)
+        self.id: int = data.get('id')
+        self.customfield_id: int = data.get('field_id')
+        self.value = data.get('value')
     
+    def __str__(self):
+        return json.dumps(self.to_json())
+    
+    def __repr__(self):
+        return json.dumps(self.to_json())
+
+    def to_json(self):
+        return utils.CLEANJSON({
+            "id": self.id,
+            "field_id": self.customfield_id,
+            "value": self.value
+        })
+
 class CustomField:
     def __init__(self, data):
         if isinstance(data, str):
@@ -293,6 +314,7 @@ class CustomField:
         self.type: int = data.get('type')
         self.required: int = data.get('required')
         self.public: int = data.get('public')
+        self.options: List[CustomFieldOption] | None = [CustomFieldOption(optionData) for optionData in data.get("options")] if data.get("options") else None
     
     def __str__(self):
         return json.dumps(self.to_json())
@@ -307,7 +329,8 @@ class CustomField:
             "description": self.description,
             "type": self.type,
             "required": self.required,
-            "public": self.public
+            "public": self.public,
+            "options": [option.to_json() for option in self.options] if self.options else None
         })
 
 class SLAPlan:
