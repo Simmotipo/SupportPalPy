@@ -1,3 +1,4 @@
+## Supportpal API Lib, by Simmotipo
 
 from typing import List
 import json
@@ -112,6 +113,10 @@ class User:
         self.organisation_access_level: int = data.get('organisation_access_level')
         self.organisation_notifications: int = data.get('organisation_notifications')
         self.formatted_name: str = data.get('formatted_name')
+        self.last_active_at: str = data.get('last_active_at')
+        self.created_at: str = data.get('created_at')
+        self.updated_at: str = data.get('updated_at')
+        self.organisation_access_level: int = data.get('organisation_access_level')
         if not data.get('organisation') == None:
             self.organisation: Organisation = Organisation(data.get('organisation'))
 
@@ -131,7 +136,11 @@ class User:
             "organisation_id": self.organisation_id,
             "organisation_access_leve": self.organisation_access_level,
             "organisation_notifications": self.organisation_notifications,
-            "formatted_name": self.formatted_name
+            "formatted_name": self.formatted_name,
+            "last_active_at": self.last_active_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "organisation_access_level": self.organisation_access_level
         })
     
 class Organisation:
@@ -282,28 +291,7 @@ class CustomFieldValue:
             "value": self.value,
             "encrypted": self.encrypted
         })
-
-class CustomFieldOption:
-    def __init__(self, data):
-        if isinstance(data, str):
-            data = json.loads(data)
-        self.id: int = data.get('id')
-        self.customfield_id: int = data.get('field_id')
-        self.value = data.get('value')
     
-    def __str__(self):
-        return json.dumps(self.to_json())
-    
-    def __repr__(self):
-        return json.dumps(self.to_json())
-
-    def to_json(self):
-        return utils.CLEANJSON({
-            "id": self.id,
-            "field_id": self.customfield_id,
-            "value": self.value
-        })
-
 class CustomField:
     def __init__(self, data):
         if isinstance(data, str):
@@ -314,7 +302,6 @@ class CustomField:
         self.type: int = data.get('type')
         self.required: int = data.get('required')
         self.public: int = data.get('public')
-        self.options: List[CustomFieldOption] | None = [CustomFieldOption(optionData) for optionData in data.get("options")] if data.get("options") else None
     
     def __str__(self):
         return json.dumps(self.to_json())
@@ -329,8 +316,7 @@ class CustomField:
             "description": self.description,
             "type": self.type,
             "required": self.required,
-            "public": self.public,
-            "options": [option.to_json() for option in self.options] if self.options else None
+            "public": self.public
         })
 
 class SLAPlan:
