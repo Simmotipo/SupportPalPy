@@ -113,10 +113,6 @@ class User:
         self.organisation_access_level: int = data.get('organisation_access_level')
         self.organisation_notifications: int = data.get('organisation_notifications')
         self.formatted_name: str = data.get('formatted_name')
-        self.last_active_at: str = data.get('last_active_at')
-        self.created_at: str = data.get('created_at')
-        self.updated_at: str = data.get('updated_at')
-        self.organisation_access_level: int = data.get('organisation_access_level')
         if not data.get('organisation') == None:
             self.organisation: Organisation = Organisation(data.get('organisation'))
 
@@ -136,11 +132,7 @@ class User:
             "organisation_id": self.organisation_id,
             "organisation_access_leve": self.organisation_access_level,
             "organisation_notifications": self.organisation_notifications,
-            "formatted_name": self.formatted_name,
-            "last_active_at": self.last_active_at,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "organisation_access_level": self.organisation_access_level
+            "formatted_name": self.formatted_name
         })
     
 class Organisation:
@@ -212,6 +204,29 @@ class Ticket:
     
     def __repr__(self):
         return json.dumps(self.to_json())
+
+    def GetTimesheet(self, user: int | User = None) -> json:
+        args = "&"
+        if user:
+            if isinstance(user, int):
+                args += f"user_id={user}&"
+            elif isinstance(user, User):
+                args += f"user_id={user.id}&"
+        target = f"{URL}/plugin/timetracking/timelog?ticket_id={self.id}{args[:-1]}"
+        return json.dumps(json.loads(utils.GET(target, TKN).text)['data'])
+
+    def CreateTimesheetEntry(self, user: int | User, startunix, duration_seconds, description: str = None, billable: bool = False) -> json:
+        data = {
+            "ticket_id": self.id,
+            "user_id": user if isinstance(user, int) else user.id,
+            "start_time": startunix,
+            "time": duration_seconds,
+            "description": description if not description == None else None,
+            "billable": billable,
+            "status": 2
+        }
+        target = f"{URL}/plugin/timetracking/timelog"
+        return json.loads(utils.POST(target, TKN, data).text)
 
     def to_json(self):
         return utils.CLEANJSON({
@@ -565,7 +580,7 @@ def GetUserById(id: int) -> User:
     return User(json.loads(utils.GET(target, TKN).text)['data'])
 
 def GetStatuses(limit: int = 50) -> List[Status]:
-    target = f"{URL}/api/ticket/status?limit={limit}"
+    target = f"{URL}/ticket/status?limit={limit}"
     data = json.loads(utils.GET(target, TKN).text)['data']
     results = []
     for obj in data:
@@ -573,12 +588,12 @@ def GetStatuses(limit: int = 50) -> List[Status]:
     return results
 
 def GetStatusById(id: int | str) -> Status:
-    target = f"{URL}/api/ticket/status/{id}"
+    target = f"{URL}/ticket/status/{id}"
     data = json.loads(utils.GET(target, TKN).text)['data']
     return Status(data)
 
 def GetPriorities(limit: int = 50) -> List[Priority]:
-    target = f"{URL}/api/ticket/priority?limit={limit}"
+    target = f"{URL}/ticket/priority?limit={limit}"
     data = json.loads(utils.GET(target, TKN).text)['data']
     results = []
     for obj in data:
@@ -586,12 +601,12 @@ def GetPriorities(limit: int = 50) -> List[Priority]:
     return results
 
 def GetPriorityById(id: int | str) -> Priority:
-    target = f"{URL}/api/ticket/priority/{id}"
+    target = f"{URL}/ticket/priority/{id}"
     data = json.loads(utils.GET(target, TKN).text)['data']
     return Priority(data)
 
 def GetCustomFields(limit: int = 50) -> List[CustomField]:
-    target = f"{URL}/api/ticket/customfield?limit={limit}"
+    target = f"{URL}/ticket/customfield?limit={limit}"
     data = json.loads(utils.GET(target, TKN).text)['data']
     results = []
     for obj in data:
@@ -599,6 +614,6 @@ def GetCustomFields(limit: int = 50) -> List[CustomField]:
     return results
 
 def GetCustomFieldById(id: int | str) -> CustomField:
-        target = f"{URL}/api/ticket/customfield/{id}"
+        target = f"{URL}/ticket/customfield/{id}"
         data = json.loads(utils.GET(target, TKN).text)['data']
         return CustomField(data)
