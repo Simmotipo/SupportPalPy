@@ -213,7 +213,7 @@ class Ticket:
             elif isinstance(user, User):
                 args += f"user_id={user.id}&"
         target = f"{URL}/plugin/timetracking/timelog?ticket_id={self.id}{args[:-1]}"
-        return json.dumps(json.loads(utils.GET(target, TKN).text)['data'])
+        return json.loads(utils.GET(target, TKN).text)['data']
 
     def CreateTimesheetEntry(self, user: int | User, startunix, duration_seconds, description: str = None, billable: bool = False) -> json:
         data = {
@@ -227,6 +227,18 @@ class Ticket:
         }
         target = f"{URL}/plugin/timetracking/timelog"
         return json.loads(utils.POST(target, TKN, data).text)
+
+    def CreateMessage(self, operator: int | Operator, message_text: str, message_on_behalf_of: int | User = None) -> Message | str:
+        data = {
+            "ticket_id": self.id,
+            "user_id": operator.id if isinstance(operator, Operator) else operator if isinstance(operator, int) else None,
+            "on_behalf_of": message_on_behalf_of.id if isinstance(message_on_behalf_of, User) else message_on_behalf_of if isinstance(message_on_behalf_of, int) else None,
+            "text": message_text
+        }
+
+        target = f"{URL}/ticket/message"
+        resp = utils.POST(target, TKN, data)
+        return Message(json.loads(resp.text)['data']) if resp.status_code == 200 else resp.text
 
     def to_json(self):
         return utils.CLEANJSON({
@@ -617,3 +629,22 @@ def GetCustomFieldById(id: int | str) -> CustomField:
         target = f"{URL}/ticket/customfield/{id}"
         data = json.loads(utils.GET(target, TKN).text)['data']
         return CustomField(data)
+
+def CreateTicket(department: int, assignees: list[int | Operator], internal: bool, subject: str, message_text: str, priority: int | Priority, status: int | Status, user: int | User = None, message_on_behalf_of: int | User = None) -> Ticket | str:
+    """Returns instance of Ticket if successful, or response text as string if fails"""
+    payload = {
+        "department": department,
+        "status": status.id if isinstance(status, Status) else status,
+        "internal": internal,
+        "assignedto": [assignee.id if isinstance(assignee, Operator) else assignee for assignee in assignees], # API expects an array for assignedto
+        "subject": subject,
+        "text": message_text,
+        "on_behalf_of": message_on_behalf_of.id if isinstance(message_on_behalf_of, User | Operator) else message_on_behalf_of if isinstance(message_on_behalf_of, int) else None,
+        "priority": priority.id if isinstance(priority, Priority) else priority,
+        "user": user.id if isinstance(user, User) else user
+    }
+
+    payload = utils.CLEANJSON(payload) # Remove None / null values
+    target = f"{URL}/ticket/ticket"
+    resp = utils.POST(target, TKN, payload)
+    return Ticket(json.loads(resp.text)['data']) if resp.status_code == 200 else resp.text
