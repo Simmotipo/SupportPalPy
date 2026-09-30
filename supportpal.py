@@ -1,8 +1,6 @@
 ## Supportpal API Lib, by Simmotipo
 
-from __future__ import annotations
-from typing import List, Union, Literal
-from enum import IntEnum
+from typing import List
 import json
 from dateutil import parser
 
@@ -13,12 +11,12 @@ URL = ""
 TKN = ""
 
 class utils:
-    def GET(url, tkn, params=None):
-        return requests.get(
-            url,
-            auth=HTTPBasicAuth(tkn, ''),
-            params=params
+    def GET(url, tkn):
+        response = requests.get(
+            url, 
+            auth=HTTPBasicAuth(tkn, '')
         )
+        return response
 
     def POST(url, tkn, data=None):
         response = requests.post(
@@ -46,28 +44,6 @@ class utils:
     def CLEANJSON(json):
         return json
 
-    def _resolve_id(val: any) -> any:
-        """Helper to extract an ID attribute or return the raw value."""
-        return getattr(val, "id", val)
-
-    def _format_list_or_val(val: any) -> str:
-        """Formats single entities or lists into comma-separated ID strings."""
-        if isinstance(val, (list, tuple)):
-            return ",".join(str(utils._resolve_id(item)) for item in val)
-        return str(utils._resolve_id(val))
-
-    def _to_timestamp(val: Union[int, str, None]) -> int | None:
-        """Parses timestamps safely."""
-        if val is None or isinstance(val, int):
-            return val
-        return int(parser.parse(val, dayfirst=True).timestamp())
-
-class Enums:
-    class MessageType(IntEnum):
-        """0 = message; 1 = note"""
-        MESSAGE = 0
-        NOTE = 1
-
 class Operator:
     def __init__(self, data: dict | str):
         if isinstance(data, str):
@@ -78,7 +54,6 @@ class Operator:
         self.email: str = data.get('email')
         self.active: int = data.get('active') or 0
         self.groups: List[OperatorGroup] = []
-        self.formatted_name: str = data.get('formatted_name')
         for group in data.get('groups') or {}:
             self.groups.append(OperatorGroup(group))
 
@@ -253,7 +228,7 @@ class Ticket:
         target = f"{URL}/plugin/timetracking/timelog"
         return json.loads(utils.POST(target, TKN, data).text)
 
-    def CreateMessage(self, operator: int | Operator, message_text: str, message_on_behalf_of: int | User = None) -> Message | str:
+    def CreateMessage(self, operator: int | Operator, message_text: str, message_on_behalf_of: int | User = None) -> 'Message | str':
         data = {
             "ticket_id": self.id,
             "user_id": operator.id if isinstance(operator, Operator) else operator if isinstance(operator, int) else None,
@@ -265,7 +240,7 @@ class Ticket:
         resp = utils.POST(target, TKN, data)
         return Message(json.loads(resp.text)['data']) if resp.status_code == 200 else resp.text
 
-    def to_json(self):
+    def to_json(self, include_last_reply: bool = False):
         return utils.CLEANJSON({
             "id": self.id,
             "number": self.number,
@@ -278,8 +253,10 @@ class Ticket:
             "locked": self.locked,
             "internal": self.internal,
             "merged": self.merged,
+            "subject": self.subject,
             "assigned": [op.to_json() for op in self.assigned],
-            "customfields": [cf.to_json() for cf in self.custom_field_values]
+            "customfields": [cf.to_json() for cf in self.custom_field_values],
+            "last_reply": self.last_reply.to_json() if self.last_reply and include_last_reply else None
         })
 
 class Message:
@@ -288,10 +265,10 @@ class Message:
             data = json.loads(data)
         self.id: int = data.get('id')
         self.ticket_id: int = data.get('ticket_id')
-        self.user_id: int = data.get('user_id')
+        self.user_id: str = data.get('user_id')
         self.user_name: str = data.get('user_name')
-        self.is_from_customer: Literal[0, 1] = data.get('by') # 0 = operator; 1 = customer
-        self.is_note: Literal[0, 1] = data.get('type')
+        self.is_from_customer: int = data.get('by') # 0 = operator; 1 = customer
+        self.is_note: int = data.get('type') # 0 = message; 1 = note
         self.excerpt: str = data.get('excerpt')
         self.text: str = data.get('text')
         self.purified_text: str = data.get('purified_text')
@@ -316,7 +293,8 @@ class Message:
             "excerpt": self.excerpt,
             "text": self.text,
             "purified_text": self.purified_text,
-            "is_draft": self.is_draft
+            "is_draft": self.is_draft,
+            "created_at": self.created_at
         })
 
 class CustomFieldValue:
@@ -343,32 +321,6 @@ class CustomFieldValue:
             "value": self.value,
             "encrypted": self.encrypted
         })
-
-class CustomFieldOption:
-    def __init__(self, data):
-        if isinstance(data, str):
-            data = json.loads(data)
-        self.id: int = data.get('id')
-        self.customfield_id: int = data.get('field_id')
-        self.order: int = data.get('order')
-        self.value = data.get('value')
-        self.created_at: int = data.get('created_at')
-        self.updated_at: int = data.get('updated_at')
-    
-    def __str__(self):
-        return json.dumps(self.to_json())
-    
-    def __repr__(self):
-        return json.dumps(self.to_json())
-
-    def to_json(self):
-        return utils.CLEANJSON({
-            "id": self.id,
-            "field_id": self.customfield_id,
-            "ticket_id": self.ticket_id,
-            "value": self.value,
-            "encrypted": self.encrypted
-        })
     
 class CustomField:
     def __init__(self, data):
@@ -380,9 +332,6 @@ class CustomField:
         self.type: int = data.get('type')
         self.required: int = data.get('required')
         self.public: int = data.get('public')
-        self.options: List[CustomFieldOption] = []
-        for option in data.get('options'): self.options.append(CustomFieldOption(option))
-
     
     def __str__(self):
         return json.dumps(self.to_json())
@@ -463,61 +412,98 @@ def SanitiseUrl(URL):
         URL = URL[0:len(URL)-2]
     return URL
 
-def GetTickets(
-    filter: int = None,
-    filter_operator: Operator | int = None,
-    search: str = None,
-    number: str = None,
-    status: str | Status | List[str] | List[Status] = None,
-    priority: str | Priority = None,
-    user: User | List[User] | str = None,
-    user_email: str = None,
-    organisation: Organisation | str | List[Organisation] | List[str] = None,
-    assigned: Operator | List[Operator] | str = None,
-    internal: bool = None,
-    start: int = None,
-    created_at_min: int | str = None,
-    created_at_max: int | str = None,
-    updated_at_min: int | str = None,
-    updated_at_max: int | str = None,
-    limit: int = 50,
-    order_column: str = None,
-    order_direction: str = None,
-) -> List[Ticket]:
-
-    # Build params dictionary directly
-    params = {"limit": limit}
-
-    mapping = {
-        "filter": filter,
-        "filter_operator": utils._resolve_id(filter_operator) if filter_operator is not None else None,
-        "search": search,
-        "number": number,
-        "status": (
-            [utils._resolve_id(s) for s in status]
-            if isinstance(status, (list, tuple, set))
-            else utils._resolve_id(status)
-        ) if status is not None else None,
-        "priority": utils._resolve_id(priority) if priority is not None else None,
-        "user": utils._format_list_or_val(user) if user is not None else None,
-        "user_email": user_email,
-        "organisation": utils._format_list_or_val(organisation) if organisation is not None else None,
-        "assigned": utils._format_list_or_val(assigned) if assigned is not None else None,
-        "internal": int(internal) if internal is not None else None,
-        "start": start,
-        "created_at_min": utils._to_timestamp(created_at_min),
-        "created_at_max": utils._to_timestamp(created_at_max),
-        "updated_at_min": utils._to_timestamp(updated_at_min),
-        "updated_at_max": utils._to_timestamp(updated_at_max),
-        "order_column": order_column,
-        "order_direction": order_direction,
-    }
-
-    # Prune unset parameters
-    params.update({k: v for k, v in mapping.items() if v is not None})
-    response = utils.GET(f"{URL}/ticket/ticket", TKN, params=params)
-    data = response.json().get("data", [])
-    return [Ticket(ticket) for ticket in data]
+def GetTickets(filter: int = None, filter_operator: Operator | int = None, search: str = None, number: str = None, status: str | Status | List[str] | List[Status] = None, priority: str | Priority = None, user: User | List[User] | str = None, user_email: str = None, organisation: Organisation | str = None, assigned: Operator | List[Operator] | str | List[str] = None, internal: bool = None, start: int = None, created_at_min: int | str = None, created_at_max: int | str = None, updated_at_min: int | str = None, updated_at_max: int | str = None, limit: int = 50) -> List[Ticket]:
+    target = f"{URL}/ticket/ticket?limit={limit}"
+    if not filter == None:
+        target += f"&filter={filter}"
+    if not filter == filter_operator:
+        if isinstance(filter_operator, Operator):
+            target += f"&filter_operator={filter_operator.id}"
+        else:
+            target += f"&filter_operator={filter_operator}"
+    if not search == None:
+        target += f"&search={search}"
+    if not number == None:
+        target += f"&number={number}"
+    if not status == None:
+        if isinstance(status, Status):
+            target += f"&status={status.id}"
+        elif isinstance(status, str):
+            target += f"&status={status}"
+        elif isinstance(status, list) and isinstance(status[0], str):
+            target += f"&status="
+            for st in status: target += f"{st},"
+            target = target[0:-1]
+        elif isinstance(status, list) and isinstance(status[0], Status):
+            target += f"&status="
+            for st in status: target += f"{st.id},"
+            target = target[0:-1]
+    if not priority == None:
+        if isinstance(priority, Priority):
+            target += f"&priority={priority.id}"
+        else:
+            target += f"&priority={priority}"
+    if not user == None:
+        if isinstance(user, User):
+            target += f"&user={user.id}"
+        elif isinstance(user, list) and isinstance(user[0], User):
+            target += f"&user="
+            for eachUser in user:
+                target += eachUser.id + ","
+            target = target[0:len(target)-2]
+        else:
+            target += f"&user={user}"
+    if not user_email == None:
+        target += f"&user_email={user_email}"
+    if not organisation == None:
+        if isinstance(organisation, Organisation):
+            target += f"&organisation={organisation.id}"
+        else:
+            target += f"&organisation={organisation}"
+    if not assigned == None:
+        if isinstance(assigned, Operator):
+            target += f"&assigned={user.id}"
+        elif isinstance(assigned, list) and isinstance(assigned[0], Operator):
+            target += f"&assigned="
+            for eachUser in user:
+                target += eachUser.id + ","
+            target = target[0:-1]
+        elif isinstance(assigned, list) and isinstance(assigned[0], str):
+            target += f"&assigned="
+            for eachUser in user:
+                target += eachUser + ","
+            target = target[0:-1]
+        else:
+            target += f"&assigned={assigned}"
+    if not internal == None:
+        target += f"&internal={int(internal)}"
+    if not start == None:
+        target += f"&start={start}"
+    if not updated_at_max == None:
+        if isinstance(updated_at_max, int):
+            target += f"&updated_at_max={updated_at_max}"
+        else:
+            target += f"&updated_at_max={int(parser.parse(updated_at_max, dayfirst=True).timestamp())}"
+    if not updated_at_min == None:
+        if isinstance(updated_at_min, int):
+            target += f"&updated_at_min={updated_at_min}"
+        else:
+            target += f"&updated_at_min={int(parser.parse(updated_at_min, dayfirst=True).timestamp())}"
+    if not created_at_max == None:
+        if isinstance(created_at_max, int):
+            target += f"&created_at_max={created_at_max}"
+        else:
+            target += f"&created_at_max={int(parser.parse(created_at_max, dayfirst=True).timestamp())}"
+    if not created_at_min == None:
+        if isinstance(created_at_min, int):
+            target += f"&created_at_min={created_at_min}"
+        else:
+            target += f"&created_at_min={int(parser.parse(created_at_min, dayfirst=True).timestamp())}"
+    data = json.loads(utils.GET(target, TKN).text)['data']
+    results = []
+    for ticket in data:
+        results.append(Ticket(ticket))
+    return results
 
 def GetTicketById(id: int) -> Ticket:
     target = f"{URL}/ticket/ticket/{id}"
