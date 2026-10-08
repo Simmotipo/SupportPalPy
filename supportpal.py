@@ -154,7 +154,6 @@ class Article:
     def __init__(self, data: dict | str):
         if isinstance(data, str):
             data = json.loads(data)
-
         self.id: int = data.get('id')
         self.author_id: int = data.get('author_id')
         self.title: str = data.get('title')
@@ -165,7 +164,7 @@ class Article:
         self.protected: bool = data.get('protected')
         self.pinned: bool = data.get('pinned')
         self.types: List[ArticleType] = [ArticleType(d) for d in data.get('types', {})]
-        self.tags = data.get('tags')
+        self.tags: List[ArticleTag | str] = [ArticleTag(t) if isinstance(t, dict) else ArticleTag({"name": t}) for t in data.get('tag', {})]
         self.attachments = data.get('attachments')
         self.category_ids: List[int] = data.get('category')
 
@@ -187,7 +186,7 @@ class Article:
             'protected': int(self.protected),
             'pinned': int(self.pinned),
             'types': [t.to_json() for t in self.types],
-            'tags': self.tags,
+            'tag': [t.name if isinstance(t, ArticleTag) else t for t in self.tags],
             'attachments': self.attachments,
             'category': self.category_ids
         })
