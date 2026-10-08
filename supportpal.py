@@ -825,13 +825,13 @@ def GetArticles(limit: int = 20) -> List[Article]:
         articles.append(Article(article)) 
     return articles
 
-def GetArticleById(id, limit: int = 20) -> Article:
+def GetArticleById(id) -> Article:
     articles_json = json.loads(utils.GET(f"{URL}/selfservice/article/{id}", tkn=TKN).text)['data']
+    print(articles_json)
     return Article(articles_json)
 
-def SearchArticles(term: str, plublishedOnly: bool = False, limit: int = 20) -> List[Article]:
-    print(f"{URL}/selfservice/article/search?limit={limit}&term={term}")
-    articles_json = json.loads(utils.GET(f"{URL}/selfservice/article/search?limit={limit}&published={plublishedOnly}&term={term}", tkn=TKN).text)['data']
+def SearchArticles(term: str, limit: int = 20, published_only: bool = False, include_protected: bool = True) -> List[Article]:
+    articles_json = json.loads(utils.GET(f"{URL}/selfservice/article/search?limit={limit}&published={published_only}&protected={include_protected}&term={term}", tkn=TKN).text)['data']
     articles = []
     for article in articles_json:
         articles.append(Article(article)) 
