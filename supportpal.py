@@ -44,6 +44,154 @@ class utils:
     def CLEANJSON(json):
         return json
 
+class Category:
+    def __init__(self, data: dict | str):
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        self.id: int = data.get('id')
+        self.type_id: int = data.get('type_id')
+        self.parent_id: int = data.get('parent_id')
+        self.name: str = data.get('name')
+        self.slug: str = data.get('slug')
+        self.public: bool = data.get('public')
+        self.parent_public: bool = data.get('parent_public')
+        self.created_at: int = data.get('created_at')
+        self.updated_at: int = data.get('updated_at')
+        self.frontend_url: str = data.get('frontend_url')
+
+    def __str__(self):
+        return json.dumps(self.to_json())
+    
+    def __repr__(self):
+        return json.dumps(self.to_json())
+    
+    def to_json(self):
+        return utils.CLEANJSON({
+            'id': self.id,
+            'type_id': self.type_id,
+            'parent_id': self.parent_id,
+            'name': self.name,
+            'slug': self.slug,
+            'public': int(self.public),
+            'parent_public': int(self.parent_public),
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'frontend_url': self.frontend_url
+        })
+
+class ArticleType:
+    def __init__(self, data: dict | str):
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        self.id: int = data.get('id')
+        self.brand_id: int = data.get('brand_id')
+        self.name: str = data.get('name')
+        self.slug: str = data.get('slug')
+        self.description: str = data.get('description')
+        self.order: int = data.get('order')
+        self.enabled: bool = data.get('enabled')
+        self.protected: bool = data.get('protected')
+        self.internal: bool = data.get('internal')
+        self.is_external_link: bool = data.get('content')
+        self.view: int = data.get('view')
+        self.icon: str = data.get('icon')
+        self.icon_label: str = data.get('icon_label')
+        self.article_ordering: int = data.get('article_ordering')
+        self.show_on_dashboard: bool = data.get('show_on_dashboard')
+        self.external_link: str = data.get('external_link')
+
+    def __str__(self):
+        return json.dumps(self.to_json())
+    
+    def __repr__(self):
+        return json.dumps(self.to_json())
+    
+    def to_json(self):
+        return utils.CLEANJSON({
+            'id': self.id,
+            'brand_id': self.brand_id,
+            'name': self.name,
+            'slug': self.slug,
+            'description': self.description,
+            'order': self.order,
+            'enabled': int(self.enabled),
+            'protected': int(self.protected),
+            'internal': int(self.internal),
+            'content': int(self.is_external_link),
+            'view': self.view,
+            'icon': self.icon,
+            'icon_label': self.icon_label,
+            'article_ordering': self.article_ordering,
+            'show_on_dashboard': int(self.show_on_dashboard) if self.show_on_dashboard else None,
+            'external_link': self.external_link,
+        })
+
+class ArticleTag:
+    def __init__(self, data: dict | str):
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        self.id: int = data.get('id')
+        self.name: str = data.get('name')
+        self.slug: str = data.get('slug')
+
+    def __str__(self):
+        return json.dumps(self.to_json())
+    
+    def __repr__(self):
+        return json.dumps(self.to_json())
+    
+    def to_json(self):
+        return utils.CLEANJSON({
+            'id': self.id,
+            'name': self.name,
+            'slug': self.slug
+        })
+
+class Article:
+    def __init__(self, data: dict | str):
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        self.id: int = data.get('id')
+        self.author_id: int = data.get('author_id')
+        self.title: str = data.get('title')
+        self.slug: str = data.get('slug')
+        self.excerpt: str = data.get('excerpt')
+        self.text: str = data.get('text')
+        self.published: bool = data.get('published')
+        self.protected: bool = data.get('protected')
+        self.pinned: bool = data.get('pinned')
+        self.types: List[ArticleType] = [ArticleType(d) for d in data.get('types', {})]
+        self.tags = data.get('tags')
+        self.attachments = data.get('attachments')
+        self.category_ids: List[int] = data.get('category')
+
+    def __str__(self):
+        return json.dumps(self.to_json())
+    
+    def __repr__(self):
+        return json.dumps(self.to_json())
+    
+    def to_json(self):
+        return utils.CLEANJSON({
+            'id': self.id,
+            'author_id': self.author_id,
+            'title': self.title,
+            'slug': self.slug,
+            'excerpt': self.excerpt,
+            'text': self.text,
+            'published': int(self.published),
+            'protected': int(self.protected),
+            'pinned': int(self.pinned),
+            'types': [t.to_json() for t in self.types],
+            'tags': self.tags,
+            'attachments': self.attachments,
+            'category': self.category_ids
+        })
+
 class Operator:
     def __init__(self, data: dict | str):
         if isinstance(data, str):
@@ -240,7 +388,11 @@ class Ticket:
         resp = utils.POST(target, TKN, data)
         return Message(json.loads(resp.text)['data']) if resp.status_code == 200 else resp.text
 
-    def to_json(self, include_last_reply: bool = False):
+    def Update(self) -> 'dict':
+        resp: requests.Response = utils.PUT(f"{URL}/ticket/ticket/{self.id}", TKN, self.to_json(in_reply_format=False))
+        return {"code": resp.status_code, "txt": resp.text, "requestbody": self.to_json(in_reply_format=False)}
+
+    def to_json(self, include_last_reply: bool = False, in_reply_format = True):
         return utils.CLEANJSON({
             "id": self.id,
             "number": self.number,
@@ -255,7 +407,7 @@ class Ticket:
             "merged": self.merged,
             "subject": self.subject,
             "assigned": [op.to_json() for op in self.assigned],
-            "customfields": [cf.to_json() for cf in self.custom_field_values],
+            "customfield": {cf.customfield_id: cf.value for cf in self.custom_field_values},
             "last_reply": self.last_reply.to_json() if self.last_reply and include_last_reply else None
         })
 
@@ -332,6 +484,7 @@ class CustomField:
         self.type: int = data.get('type')
         self.required: int = data.get('required')
         self.public: int = data.get('public')
+        self.options: List[CustomFieldValue] | None = [CustomFieldValue(objdata) for objdata in data.get("options", {})]
     
     def __str__(self):
         return json.dumps(self.to_json())
@@ -346,7 +499,8 @@ class CustomField:
             "description": self.description,
             "type": self.type,
             "required": self.required,
-            "public": self.public
+            "public": self.public,
+            "options": [option.to_json() for option in self.options] if self.options else None
         })
 
 class SLAPlan:
@@ -664,3 +818,79 @@ def CreateTicket(department: int, assignees: list[int | Operator], internal: boo
     target = f"{URL}/ticket/ticket"
     resp = utils.POST(target, TKN, payload)
     return Ticket(json.loads(resp.text)['data']) if resp.status_code == 200 else resp.text
+
+def GetArticles(limit: int = 20) -> List[Article]:
+    articles_json = json.loads(utils.GET(f"{URL}/selfservice/article?limit={limit}", tkn=TKN).text)['data']
+    articles = []
+    for article in articles_json:
+        articles.append(Article(article)) 
+    return articles
+
+def GetArticleById(id, limit: int = 20) -> Article:
+    articles_json = json.loads(utils.GET(f"{URL}/selfservice/article/{id}", tkn=TKN).text)['data']
+    return Article(articles_json)
+
+def SearchArticles(term: str, plublishedOnly: bool = False, limit: int = 20) -> List[Article]:
+    print(f"{URL}/selfservice/article/search?limit={limit}&term={term}")
+    articles_json = json.loads(utils.GET(f"{URL}/selfservice/article/search?limit={limit}&published={plublishedOnly}&term={term}", tkn=TKN).text)['data']
+    articles = []
+    for article in articles_json:
+        articles.append(Article(article)) 
+    return articles
+
+def DeleteArticle(article: int | Article):
+    response = json.loads(utils.DELETE(f"{URL}/selfservice/article/{article.id if isinstance(article, Article) else article}", tkn=TKN).text)['data']
+    return response
+
+def CreateArticle(article: dict | Article):
+    if isinstance(article, dict): article = Article(article)
+    response = json.loads(utils.POST(f"{URL}/selfservice/article", tkn=TKN, data=article.to_json()).text)
+    return response
+
+def GetCategories(limit: int = 20) -> List[Article]:
+    categories_json = json.loads(utils.GET(f"{URL}/selfservice/category?limit={limit}", tkn=TKN).text)['data']
+    categories = []
+    for category in categories_json:
+        categories.append(Category(category)) 
+    return categories
+
+def GetCategoryById(id) -> Article:
+    categories_json = json.loads(utils.GET(f"{URL}/selfservice/category/{id}", tkn=TKN).text)['data']
+    return Category(categories_json)
+
+def CreateCategory(category: dict | Category):
+    if isinstance(category, dict): category = Category(category)
+    response = json.loads(utils.POST(f"{URL}/selfservice/category", tkn=TKN, data=category.to_json()).text)
+    return response
+
+def GetTags(limit: int = 20) -> List[ArticleTag]:
+    tags_json = json.loads(utils.GET(f"{URL}/selfservice/tag?limit={limit}", tkn=TKN).text)['data']
+    tags = []
+    for tag in tags_json:
+        tags.append(ArticleTag(tag)) 
+    return tags
+
+def GetTagById(id) -> ArticleTag:
+    tags_json = json.loads(utils.GET(f"{URL}/selfservice/tag/{id}", tkn=TKN).text)['data']
+    return ArticleTag(tags_json)
+
+def CreateTag(tag: dict | ArticleTag):
+    if isinstance(tag, dict): tag = ArticleTag(tag)
+    response = json.loads(utils.POST(f"{URL}/selfservice/tag", tkn=TKN, data=tag.to_json()).text)
+    return response
+
+def GetTypes(limit: int = 20) -> List[ArticleType]:
+    types_json = json.loads(utils.GET(f"{URL}/selfservice/type?limit={limit}", tkn=TKN).text)['data']
+    types = []
+    for type in types_json:
+        types.append(ArticleType(type)) 
+    return types
+
+def GetTypeById(id) -> ArticleType:
+    types_json = json.loads(utils.GET(f"{URL}/selfservice/type/{id}", tkn=TKN).text)['data']
+    return ArticleType(types_json)
+
+def CreateType(type: dict | ArticleType):
+    if isinstance(type, dict): type = ArticleType(type)
+    response = json.loads(utils.POST(f"{URL}/selfservice/type", tkn=TKN, data=type.to_json()).text)
+    return response
