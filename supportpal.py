@@ -879,6 +879,10 @@ def CreateTag(tag: dict | ArticleTag):
     response = json.loads(utils.POST(f"{URL}/selfservice/tag", tkn=TKN, data=tag.to_json()).text)
     return response
 
+def DeleteTag(tag: int | Article):
+    response = json.loads(utils.DELETE(f"{URL}/selfservice/tag/{tag.id if isinstance(tag, ArticleTag) else tag}", tkn=TKN).text)['data']
+    return response
+
 def GetTypes(limit: int = 20) -> List[ArticleType]:
     types_json = json.loads(utils.GET(f"{URL}/selfservice/type?limit={limit}", tkn=TKN).text)['data']
     types = []
