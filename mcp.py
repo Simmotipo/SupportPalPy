@@ -303,7 +303,7 @@ async def create_tag(
     ) -> Dict[str, Any]:
     """Create new tag."""
     if not "SELFSERVEMETA_ADDTAG" in ENABLED_FEATURES: return {"error": "This feature is not enabled in the MCP config, and so permission to run it is denied. Advise the user to add SELFSERVEMETA_ADDTAG to their ENABLED_FEATURES_CSV key if they need to use this functionality"}
-    tag: sp.ArticleType = sp.ArticleType({
+    tag: sp.ArticleTag = sp.ArticleTag({
         "name": name,
         "slug": slug
     })
