@@ -41,8 +41,13 @@ class utils:
         )
         return response
     
-    def CLEANJSON(json):
-        return json
+    def CLEANJSON(d):
+        if isinstance(d, dict):
+            return {k: utils.CLEANJSON(v) for k, v in d.items() if v not in [None, "None", "none", "null"]}
+        elif isinstance(d, list):
+            return [utils.CLEANJSON(v) for v in d if v not in [None, "None", "none", "null"]]
+        else:
+            return d
 
 class Category:
     def __init__(self, data: dict | str):
@@ -148,6 +153,28 @@ class ArticleTag:
             'id': self.id,
             'name': self.name,
             'slug': self.slug
+        })
+
+class TicketTag:
+    def __init__(self, data: dict | str):
+        if isinstance(data, str):
+            data = json.loads(data)
+
+        self.id: int = data.get('id')
+        self.name: str = data.get('name')
+        self.colour: str = data.get('colour')
+
+    def __str__(self):
+        return json.dumps(self.to_json())
+    
+    def __repr__(self):
+        return json.dumps(self.to_json())
+    
+    def to_json(self):
+        return utils.CLEANJSON({
+            'id': self.id,
+            'name': self.name,
+            'colour': self.colour
         })
 
 class Article:
@@ -344,7 +371,7 @@ class Ticket:
         for customfieldvalue in data.get('customfields'):
             self.custom_field_values.append(CustomFieldValue(customfieldvalue))
         self.last_reply: Message = Message(data.get('last_reply'))
-        self.tags: List = data.get('tags')
+        self.tags: List[TicketTag | str] = [ArticleTag(t) if isinstance(t, dict) else ArticleTag({"name": t}) for t in data.get('tag', {})]
 
     def __str__(self):
         return json.dumps(self.to_json())
@@ -375,12 +402,14 @@ class Ticket:
         target = f"{URL}/plugin/timetracking/timelog"
         return json.loads(utils.POST(target, TKN, data).text)
 
-    def CreateMessage(self, operator: int | Operator, message_text: str, message_on_behalf_of: int | User = None) -> 'Message | str':
+    def CreateMessage(self, operator: int | Operator, message_text: str, message_on_behalf_of: int | User = None, is_note: bool = False, is_draft: bool = False) -> 'Message | str':
         data = {
             "ticket_id": self.id,
             "user_id": operator.id if isinstance(operator, Operator) else operator if isinstance(operator, int) else None,
             "on_behalf_of": message_on_behalf_of.id if isinstance(message_on_behalf_of, User) else message_on_behalf_of if isinstance(message_on_behalf_of, int) else None,
-            "text": message_text
+            "text": message_text,
+            "message_type": 1 if is_note else 0,
+            "is_draft": 1 if is_draft else 0,
         }
 
         target = f"{URL}/ticket/message"
@@ -395,18 +424,19 @@ class Ticket:
         return utils.CLEANJSON({
             "id": self.id,
             "number": self.number,
-            "user_id": self.user.id,
-            "status_id": self.status.id,
-            "priority_id": self.priority.id,
+            "user": self.user.id,
+            "status": self.status.id if isinstance(self.status, Status) else self.status,
+            "priority": self.priority.id if isinstance(self.priority, Priority) else self.priority,
             "sla_plan_id": self.sla.id or None,
-            "duetime": self.duetime,
+            "reply_due_time": self.duetime if self.duetime else None,
             "cc": self.cc,
             "locked": self.locked,
             "internal": self.internal,
             "merged": self.merged,
             "subject": self.subject,
-            "assigned": [op.to_json() for op in self.assigned],
+            "assignedto": [op.id if isinstance(op, Operator) else int(op) for op in self.assigned],
             "customfield": {cf.customfield_id: cf.value for cf in self.custom_field_values},
+            'tag': [t.id if isinstance(t, TicketTag) else int(t) for t in self.tags],
             "last_reply": self.last_reply.to_json() if self.last_reply and include_last_reply else None
         })
 
@@ -832,6 +862,7 @@ def GetArticleById(id) -> Article:
 
 def SearchArticles(term: str, limit: int = 20, published_only: bool = False, include_protected: bool = True) -> List[Article]:
     articles_json = json.loads(utils.GET(f"{URL}/selfservice/article/search?limit={limit}&published={published_only}&protected={include_protected}&term={term}", tkn=TKN).text)['data']
+    print(f"{URL}/selfservice/article/search?limit={limit}&published={published_only}&protected={include_protected}&term={term}")
     articles = []
     for article in articles_json:
         articles.append(Article(article)) 
@@ -862,23 +893,34 @@ def CreateCategory(category: dict | Category):
     response = json.loads(utils.POST(f"{URL}/selfservice/category", tkn=TKN, data=category.to_json()).text)
     return response
 
-def GetTags(limit: int = 20) -> List[ArticleTag]:
+def GetTicketTags(limit: int = 20, skip: int = 0) -> List[TicketTag]:
+    tags_json = json.loads(utils.GET(f"{URL}/ticket/tag?limit={limit}&start={skip}", tkn=TKN).text)['data']
+    tags = []
+    for tag in tags_json:
+        tags.append(TicketTag(tag)) 
+    return tags
+
+def GetTicketTagById(id) -> ArticleTag:
+    tags_json = json.loads(utils.GET(f"{URL}/ticket/tag/{id}", tkn=TKN).text)['data']
+    return TicketTag(tags_json)
+
+def GetSelfServiceTags(limit: int = 20) -> List[ArticleTag]:
     tags_json = json.loads(utils.GET(f"{URL}/selfservice/tag?limit={limit}", tkn=TKN).text)['data']
     tags = []
     for tag in tags_json:
         tags.append(ArticleTag(tag)) 
     return tags
 
-def GetTagById(id) -> ArticleTag:
+def GetSelfServiceTagById(id) -> ArticleTag:
     tags_json = json.loads(utils.GET(f"{URL}/selfservice/tag/{id}", tkn=TKN).text)['data']
     return ArticleTag(tags_json)
 
-def CreateTag(tag: dict | ArticleTag):
+def CreateSelfServiceTag(tag: dict | ArticleTag):
     if isinstance(tag, dict): tag = ArticleTag(tag)
     response = json.loads(utils.POST(f"{URL}/selfservice/tag", tkn=TKN, data=tag.to_json()).text)
     return response
 
-def DeleteTag(tag: int | Article):
+def DeleteSelfServiceTag(tag: int | Article):
     response = json.loads(utils.DELETE(f"{URL}/selfservice/tag/{tag.id if isinstance(tag, ArticleTag) else tag}", tkn=TKN).text)['data']
     return response
 
