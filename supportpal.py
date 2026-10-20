@@ -595,7 +595,7 @@ def SanitiseUrl(URL):
         URL = URL[0:len(URL)-2]
     return URL
 
-def GetTickets(filter: int = None, filter_operator: Operator | int = None, search: str = None, number: str = None, status: str | Status | List[str] | List[Status] = None, priority: str | Priority = None, user: User | List[User] | str = None, user_email: str = None, organisation: Organisation | str = None, assigned: Operator | List[Operator] | str | List[str] = None, internal: bool = None, start: int = None, created_at_min: int | str = None, created_at_max: int | str = None, updated_at_min: int | str = None, updated_at_max: int | str = None, limit: int = 50) -> List[Ticket]:
+def GetTickets(filter: int = None, filter_operator: Operator | int = None, search: str = None, number: str = None, status: str | Status | List[str] | List[Status] = None, priority: str | Priority = None, user: User | List[User] | str = None, user_email: str = None, organisation: Organisation | str = None, assigned: Operator | List[Operator] | str | List[str] = None, internal: bool = None, start: int = None, created_at_min: int | str = None, created_at_max: int | str = None, updated_at_min: int | str = None, updated_at_max: int | str = None, limit: int = 50, order_direction: str = "asc", order_column: str = "id") -> List[Ticket]:
     target = f"{URL}/ticket/ticket?limit={limit}"
     if not filter == None:
         target += f"&filter={filter}"
@@ -682,6 +682,8 @@ def GetTickets(filter: int = None, filter_operator: Operator | int = None, searc
             target += f"&created_at_min={created_at_min}"
         else:
             target += f"&created_at_min={int(parser.parse(created_at_min, dayfirst=True).timestamp())}"
+    if not order_direction == None: target += f"&order_direction={order_direction}"
+    if not order_column == None: target += f"&order_column={order_column}"
     data = json.loads(utils.GET(target, TKN).text)['data']
     results = []
     for ticket in data:
