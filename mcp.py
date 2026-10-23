@@ -95,10 +95,12 @@ async def search_tickets(
 
 @mcp.tool()
 async def get_ticket_details(ticket_id: int) -> Dict[str, Any]:
-    """Retrieve full details, status, and message history for a specific ticket."""
+    """Retrieve full details, including, status, timesheet, message history for a specific ticket."""
     if not "TICKET_GET" in ENABLED_FEATURES: return {"error": "This feature is not enabled in the MCP config, and so permission to run it is denied. Advise the user to add TICKET_GET to their ENABLED_FEATURES_CSV key if they need to use this functionality"}
+    tkt: sp.Ticket = sp.GetTicketById(ticket_id)
     return {
-        "ticket": sp.GetTicketById(ticket_id).to_json()
+        "ticket": tkt.to_json(in_reply_format=False),
+        "timesheet": tkt.GetTimesheet()
     }
 
 @mcp.tool()
@@ -149,6 +151,47 @@ async def get_operators(
     return {
         "operators": [operator.to_json() for operator in operators]
     }
+
+@mcp.tool()
+async def get_operator_timesheeting(start_unix: int, operator_id: Optional[int] = None, end_unix: Optional[int] = None) -> Dict[str, Any]:
+    """Retrieve a breakdown of a user's timesheet entries in the given window. If an operator_id is provided, it will only look at tickets assigned to the user; if no operator is provided, it will return all timesheeting info (including entries for users on tickets assigned to others)"""
+    if not "TICKET_GET" in ENABLED_FEATURES: return {"error": "This feature is not enabled in the MCP config, and so permission to run it is denied. Advise the user to add TICKET_GET to their ENABLED_FEATURES_CSV key if they need to use this functionality"}
+    tkts: List[sp.Ticket] = []
+    skip = 0
+    batch = sp.GetTickets(assigned=operator_id, updated_at_min=start_unix, updated_at_max=end_unix, limit=25, start=skip)
+    while len(batch) == 25:
+        for tkt in batch: tkts.append(tkt)
+        skip += 25
+        batch = sp.GetTickets(assigned=operator_id, updated_at_min=start_unix, updated_at_max=end_unix, limit=25, start=skip)
+    for tkt in batch: tkts.append(tkt)
+
+    data = {"tickets": {}, "operators": {}}
+    for tkt in tkts:
+        if not tkt.number in data['tickets']:
+            data['tickets'][tkt.number] = {'id': tkt.id, 'number': tkt.number, 'subject': tkt.subject, 'entries': []}
+        sheets = tkt.GetTimesheet()
+        for sheet in sheets:
+            data['tickets'][tkt.number]['entries'].append({
+                'operator_id': sheet.get('user_id'),
+                'operator_name': sheet.get('user_name'),
+                'start_time': sheet.get('start_time'),
+                'duration_s': sheet.get('time'),
+                'description': sheet.get('description'),
+            })
+            if not str(sheet.get('user_id')) in data['operators']:
+                data['operators'][str(sheet.get('user_id'))] = {'id': sheet.get('user_id'), 'name': sheet.get('user_name'), 'entries': []}
+            data['operators'][str(sheet.get('user_id'))]['entries'].append({
+                'ticket_id': tkt.id,
+                'ticket_number': tkt.number,
+                'ticket_subject': tkt.subject,
+                'start_time': sheet.get('start_time'),
+                'duration_s': sheet.get('time'),
+                'description': sheet.get('description'),
+            })
+    return data
+
+
+
 
 @mcp.tool()
 async def get_users(
