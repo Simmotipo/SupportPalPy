@@ -1,5 +1,5 @@
 ## Supportpal API Lib, by Simmotipo
-### Modified 30-10-26 17:25
+### Modified 30-10-26 17:30
 
 from typing import List
 import json
@@ -646,16 +646,16 @@ def GetTickets(filter: int = None, filter_operator: Operator | int = None, searc
             target += f"&organisation={organisation}"
     if not assigned == None:
         if isinstance(assigned, Operator):
-            target += f"&assigned={user.id}"
+            target += f"&assigned={assigned.id}"
         elif isinstance(assigned, list) and isinstance(assigned[0], Operator):
             target += f"&assigned="
-            for eachUser in user:
-                target += eachUser.id + ","
+            for eachAssigned in assigned:
+                target += eachAssigned.id + ","
             target = target[0:-1]
         elif isinstance(assigned, list) and isinstance(assigned[0], str):
             target += f"&assigned="
-            for eachUser in user:
-                target += eachUser + ","
+            for eachAssigned in assigned:
+                target += eachAssigned + ","
             target = target[0:-1]
         else:
             target += f"&assigned={assigned}"
