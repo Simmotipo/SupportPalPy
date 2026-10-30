@@ -1,5 +1,5 @@
 ## Supportpal API Lib, by Simmotipo
-### Modified 23-10-26 18:04
+### Modified 30-10-26 17:25
 
 from typing import List
 import json
@@ -699,9 +699,9 @@ def GetMessages(ticket_id: int = None, is_from_customer: bool = None, is_note: b
     target = f"{URL}/ticket/message?limit={limit}"
     if not ticket_id == None:
         target += f"&ticket_id={ticket_id}"
-    if is_from_customer is not None: target += f"by={int(is_from_customer)}"
-    if is_note is not None: target += f"type={int(is_note)}"
-    if include_drafts is not None: target += f"include_draft={int(include_drafts)}"
+    if is_from_customer is not None: target += f"&by={int(is_from_customer)}"
+    if is_note is not None: target += f"&type={int(is_note)}"
+    if include_drafts is not None: target += f"&include_draft={int(include_drafts)}"
     if not start == None:
         target += f"&start={start}"
     if not updated_at_max == None:
